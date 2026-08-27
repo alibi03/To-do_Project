@@ -1,4 +1,4 @@
-import { Transform, Type } from "class-transformer";
+import { Transform } from "class-transformer";
 import {
   IsDateString,
   IsEnum,
@@ -6,6 +6,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   MaxLength,
   Min,
@@ -104,10 +105,8 @@ class TodoListQueryDto {
 }
 
 class TodoIdParamsDto {
-  @Type(() => Number)
-  @IsInt({ message: "A valid to-do ID is required." })
-  @Min(1, { message: "A valid to-do ID is required." })
-  declare id: number;
+  @IsUUID("7", { message: "A valid to-do ID is required." })
+  declare id: string;
 }
 
 export {

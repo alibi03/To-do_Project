@@ -1,7 +1,7 @@
 import Todo, { type TodoStatus } from "../domain/Todo";
 
 type TodoDatabaseRecord = {
-  id: number;
+  id: string;
   title: string;
   description: string;
   status: TodoStatus;

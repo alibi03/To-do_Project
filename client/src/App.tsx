@@ -4,6 +4,7 @@ import ApiClient from "./ApiClient";
 import "./App.css";
 import ForgotPasswordForm from "./components/ForgotPasswordForm";
 import LoginForm from "./components/LoginForm";
+import NotificationList from "./components/NotificationList";
 import RegisterForm from "./components/RegisterForm";
 import TodoList from "./components/TodoList";
 import type { AuthView, MessageResponse, User } from "./types";
@@ -83,6 +84,7 @@ function App() {
               Log out
             </button>
           </div>
+          <NotificationList />
           <TodoList currentUser={user} />
         </section>
       ) : (

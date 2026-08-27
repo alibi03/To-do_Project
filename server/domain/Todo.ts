@@ -6,7 +6,7 @@ enum TodoStatus {
 
 class Todo {
   constructor(
-    readonly id: number,
+    readonly id: string,
     readonly title: string,
     readonly description: string,
     readonly status: TodoStatus,

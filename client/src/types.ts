@@ -19,7 +19,7 @@ export type TodoSortField = "status" | "dueDate";
 export type SortOrder = "asc" | "desc";
 
 export type Todo = {
-  id: number;
+  id: string;
   title: string;
   description: string;
   status: TodoStatus;
@@ -36,4 +36,19 @@ export type AuthView = "login" | "register" | "reset";
 
 export type MessageResponse = {
   message: string;
+};
+
+export type NotificationEventType = "task.assigned.v1";
+
+export type Notification = {
+  id: string;
+  event_type: NotificationEventType;
+  task_id: string;
+  message: string;
+  created_at: string;
+  read_at: string | null;
+};
+
+export type NotificationsResponse = {
+  notifications: Notification[];
 };

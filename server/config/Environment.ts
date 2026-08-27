@@ -37,7 +37,9 @@ class Environment {
       value !== "production" &&
       value !== "test"
     ) {
-      throw new ConfigurationError("NODE_ENV must be development, test, or production.");
+      throw new ConfigurationError(
+        "NODE_ENV must be development, test, or production."
+      );
     }
 
     return value;
@@ -55,7 +57,9 @@ class Environment {
 
       return origin.origin;
     } catch {
-      throw new ConfigurationError("CLIENT_ORIGIN must be a valid HTTP origin.");
+      throw new ConfigurationError(
+        "CLIENT_ORIGIN must be a valid HTTP origin."
+      );
     }
   }
 
@@ -95,6 +99,34 @@ class Environment {
     return process.env.JWT_EXPIRES_IN ?? "1h";
   }
 
+  static get rabbitMqUrl(): string {
+    const value = process.env.RABBITMQ_URL ?? "amqp://127.0.0.1:5672";
+
+    try {
+      const url = new URL(value);
+
+      if (url.protocol !== "amqp:" && url.protocol !== "amqps:") {
+        throw new Error();
+      }
+
+      return value;
+    } catch {
+      throw new ConfigurationError("RABBITMQ_URL must be a valid AMQP URL.");
+    }
+  }
+
+  static get taskEventsExchange(): string {
+    return process.env.TASK_EVENTS_EXCHANGE?.trim() || "staj.task.events";
+  }
+
+  static get outboxPollIntervalMilliseconds(): number {
+    return this.readPositiveInteger("OUTBOX_POLL_INTERVAL_MS", 1000);
+  }
+
+  static get outboxBatchSize(): number {
+    return this.readPositiveInteger("OUTBOX_BATCH_SIZE", 25);
+  }
+
   static get exposesPasswordResetCode(): boolean {
     return this.nodeEnvironment === "development";
   }
@@ -108,6 +140,10 @@ class Environment {
     void this.databaseName;
     void this.databaseUser;
     void this.jwtSecret;
+    void this.rabbitMqUrl;
+    void this.taskEventsExchange;
+    void this.outboxPollIntervalMilliseconds;
+    void this.outboxBatchSize;
   }
 }
 

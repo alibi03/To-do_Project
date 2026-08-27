@@ -18,6 +18,7 @@ import AsyncHandler from "./utils/AsyncHandler";
 const app = express();
 
 Environment.validate();
+app.disable("x-powered-by");
 
 app.use(
   cors({

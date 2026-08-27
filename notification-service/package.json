@@ -1,0 +1,41 @@
+{
+  "name": "staj-notification-service",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Event-driven notification service for the Staj task application.",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch index.ts",
+    "start": "tsx index.ts",
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "build": "npm run clean && tsc -p tsconfig.json",
+    "start:prod": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "keywords": [
+    "notifications",
+    "rabbitmq",
+    "postgresql",
+    "typescript"
+  ],
+  "license": "ISC",
+  "dependencies": {
+    "amqplib": "2.0.1",
+    "cors": "2.8.6",
+    "dotenv": "17.4.2",
+    "express": "5.2.1",
+    "jsonwebtoken": "9.0.3",
+    "pg": "8.22.0",
+    "uuid": "11.1.1"
+  },
+  "devDependencies": {
+    "@types/cors": "2.8.19",
+    "@types/express": "5.0.6",
+    "@types/jsonwebtoken": "9.0.10",
+    "@types/node": "26.2.0",
+    "@types/pg": "8.21.0",
+    "tsx": "4.23.12",
+    "typescript": "7.0.2"
+  }
+}

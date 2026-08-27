@@ -52,11 +52,19 @@ class PersistenceError extends Error {
   }
 }
 
+class ConcurrencyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ConcurrencyError";
+  }
+}
+
 export {
   ApplicationError,
   AuthenticationError,
   AuthorizationError,
   ConfigurationError,
+  ConcurrencyError,
   ConflictError,
   NotFoundError,
   PersistenceError,

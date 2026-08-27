@@ -222,7 +222,7 @@ function TodoList({ currentUser }: TodoListProps) {
     }
   }
 
-  async function deleteTodo(todoId: number) {
+  async function deleteTodo(todoId: string) {
     setMessage("");
 
     try {

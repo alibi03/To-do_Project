@@ -12,7 +12,9 @@
 .dashboard-heading,
 .section-heading,
 .task-card-heading,
-.task-actions {
+.task-actions,
+.notification-heading,
+.notification-list li {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -174,6 +176,60 @@ button.danger:hover:not(:disabled) {
   margin: 0;
 }
 
+.notification-section {
+  overflow: hidden;
+}
+
+.notification-heading {
+  padding: 18px 24px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.notification-heading h2 {
+  margin: 0;
+}
+
+.notification-heading span,
+.notification-list time {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.notification-state {
+  margin: 0;
+  padding: 24px;
+  color: #64748b;
+}
+
+.notification-error {
+  color: #b91c1c;
+  background: #fff1f2;
+}
+
+.notification-list {
+  display: grid;
+  max-height: 320px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.notification-list li {
+  padding: 16px 24px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.notification-list li:last-child {
+  border-bottom: 0;
+}
+
+.notification-list p {
+  margin-bottom: 4px;
+  color: #334155;
+  line-height: 1.45;
+}
+
 .role-label {
   margin: 6px 0 0;
   color: #64748b;
@@ -318,7 +374,9 @@ button.danger:hover:not(:disabled) {
 
   .app-header,
   .dashboard-heading,
-  .task-card-heading {
+  .task-card-heading,
+  .notification-heading,
+  .notification-list li {
     align-items: flex-start;
     flex-direction: column;
   }

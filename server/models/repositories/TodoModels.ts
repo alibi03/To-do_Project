@@ -23,6 +23,7 @@ class FindTodosModel {
 
 class CreateTodoModel {
   constructor(
+    readonly id: string,
     readonly creatorId: number,
     readonly assigneeId: number,
     readonly title: string,
@@ -37,7 +38,8 @@ class UpdateTodoModel {
     readonly description: string | null,
     readonly status: TodoStatus | null,
     readonly dueDate: string | null,
-    readonly assigneeId: number | null
+    readonly assigneeId: number | null,
+    readonly expectedAssigneeId: number | null
   ) {}
 }
 

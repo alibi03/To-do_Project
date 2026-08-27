@@ -2,7 +2,7 @@ import type { TodoStatus } from "../../domain/Todo";
 
 class TodoResponseModel {
   constructor(
-    readonly id: number,
+    readonly id: string,
     readonly title: string,
     readonly description: string,
     readonly status: TodoStatus,

@@ -40,7 +40,9 @@ export class TokenService {
     let payload: string | jwt.JwtPayload;
 
     try {
-      payload = jwt.verify(token, Environment.jwtSecret);
+      payload = jwt.verify(token, Environment.jwtSecret, {
+        algorithms: ["HS256"],
+      });
     } catch {
       throw new AuthorizationError("Token is invalid or expired.");
     }
