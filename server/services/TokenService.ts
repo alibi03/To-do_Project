@@ -1,14 +1,18 @@
+import { inject, injectable } from "inversify";
 import jwt, { type SignOptions } from "jsonwebtoken";
 
-import Environment from "../config/Environment";
+import type { ApplicationConfig } from "../config/ApplicationConfig";
+import DependencySymbols from "../dependencyInjection/DependencySymbols";
 import {
   AuthorizationError,
   ConfigurationError,
 } from "../errors/ApplicationErrors";
+import type { TokenServicePort } from "../ports/ServicePorts";
 
 type TokenLifetime = NonNullable<SignOptions["expiresIn"]>;
 
-export class TokenService {
+@injectable()
+class TokenService implements TokenServicePort {
   private readonly supportedLifetimes = new Map<string, TokenLifetime>([
     ["15m", "15m"],
     ["30m", "30m"],
@@ -18,19 +22,13 @@ export class TokenService {
     ["7d", "7d"],
   ]);
 
-  private getLifetime(): TokenLifetime {
-    const configuredLifetime = Environment.jwtExpiresIn;
-    const lifetime = this.supportedLifetimes.get(configuredLifetime);
-
-    if (!lifetime) {
-      throw new ConfigurationError("JWT_EXPIRES_IN is not supported.");
-    }
-
-    return lifetime;
-  }
+  constructor(
+    @inject(DependencySymbols.ApplicationConfig)
+    private readonly config: ApplicationConfig
+  ) {}
 
   create(userId: number): string {
-    return jwt.sign({}, Environment.jwtSecret, {
+    return jwt.sign({}, this.config.jwt.secret, {
       expiresIn: this.getLifetime(),
       subject: String(userId),
     });
@@ -40,7 +38,7 @@ export class TokenService {
     let payload: string | jwt.JwtPayload;
 
     try {
-      payload = jwt.verify(token, Environment.jwtSecret, {
+      payload = jwt.verify(token, this.config.jwt.secret, {
         algorithms: ["HS256"],
       });
     } catch {
@@ -59,8 +57,16 @@ export class TokenService {
 
     return userId;
   }
+
+  private getLifetime(): TokenLifetime {
+    const lifetime = this.supportedLifetimes.get(this.config.jwt.expiresIn);
+
+    if (!lifetime) {
+      throw new ConfigurationError("JWT_EXPIRES_IN is not supported.");
+    }
+
+    return lifetime;
+  }
 }
 
-const tokenService = new TokenService();
-
-export default tokenService;
+export default TokenService;

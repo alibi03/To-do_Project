@@ -1,14 +1,23 @@
+import { inject, injectable } from "inversify";
 import jwt from "jsonwebtoken";
 
-import Environment from "../config/Environment";
+import type { NotificationConfig } from "../config/NotificationConfig";
+import ServiceIdentifiers from "../dependencyInjection/ServiceIdentifiers";
 import { AuthenticationError } from "../errors/ApplicationErrors";
+import type { TokenServicePort } from "../ports/ServicePorts";
 
-class TokenService {
+@injectable()
+class TokenService implements TokenServicePort {
+  constructor(
+    @inject(ServiceIdentifiers.Config)
+    private readonly config: NotificationConfig
+  ) {}
+
   verifyUserId(token: string): number {
     let payload: string | jwt.JwtPayload;
 
     try {
-      payload = jwt.verify(token, Environment.jwtSecret, {
+      payload = jwt.verify(token, this.config.jwtSecret, {
         algorithms: ["HS256"],
       });
     } catch {

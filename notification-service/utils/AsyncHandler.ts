@@ -5,14 +5,16 @@ import type {
   Response,
 } from "express";
 
-type AsyncRequestHandler = (
+type AsyncRequestHandler<ResponseBody> = (
   request: Request,
-  response: Response,
+  response: Response<ResponseBody>,
   next: NextFunction
-) => Promise<void>;
+) => Promise<unknown>;
 
 class AsyncHandler {
-  static wrap(handler: AsyncRequestHandler): RequestHandler {
+  static wrap<ResponseBody>(
+    handler: AsyncRequestHandler<ResponseBody>
+  ): RequestHandler {
     return (request, response, next) => {
       void handler(request, response, next).catch(next);
     };

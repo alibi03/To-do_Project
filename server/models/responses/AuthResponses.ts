@@ -1,14 +1,12 @@
-import type { PublicUserResponseModel } from "./UserResponses";
-import MessageResponseModel from "./MessageResponse";
+import type MessageResponse from "./MessageResponse";
+import type { PublicUserResponse } from "./UserResponses";
 
-class RegisterResponseModel extends MessageResponseModel {
-  constructor(message: string, readonly user: PublicUserResponseModel) {
-    super(message);
-  }
+interface RegisterResponse extends MessageResponse {
+  user: PublicUserResponse;
 }
 
-class LoginResponseModel {
-  constructor(readonly token: string) {}
+interface LoginResponse {
+  token: string;
 }
 
-export { LoginResponseModel, RegisterResponseModel };
+export { type LoginResponse, type RegisterResponse };

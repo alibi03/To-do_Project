@@ -1,6 +1,10 @@
-import { RequestValidationError } from "../errors/ApplicationErrors";
+import { injectable } from "inversify";
 
-class NotificationLimitParser {
+import { RequestValidationError } from "../errors/ApplicationErrors";
+import type { NotificationLimitParserPort } from "../ports/InfrastructurePorts";
+
+@injectable()
+class NotificationLimitParser implements NotificationLimitParserPort {
   private static readonly defaultLimit = 20;
   private static readonly maximumLimit = 100;
 

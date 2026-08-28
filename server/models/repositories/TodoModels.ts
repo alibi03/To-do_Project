@@ -1,25 +1,4 @@
-import type { TodoStatus } from "../../domain/Todo";
-import type { UserRole } from "../../types/authTypes";
-
-enum TodoSortField {
-  Status = "status",
-  DueDate = "dueDate",
-}
-
-enum TodoSortOrder {
-  Ascending = "asc",
-  Descending = "desc",
-}
-
-class FindTodosModel {
-  constructor(
-    readonly userId: number,
-    readonly role: UserRole,
-    readonly search: string,
-    readonly sortBy: TodoSortField,
-    readonly sortOrder: TodoSortOrder
-  ) {}
-}
+import type { TodoStatus } from "../domain/Todo";
 
 class CreateTodoModel {
   constructor(
@@ -45,8 +24,5 @@ class UpdateTodoModel {
 
 export {
   CreateTodoModel,
-  FindTodosModel,
-  TodoSortField,
-  TodoSortOrder,
   UpdateTodoModel,
 };

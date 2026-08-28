@@ -1,5 +1,8 @@
-import pool from "../config/database";
-import type PasswordResetCode from "../domain/PasswordResetCode";
+import { inject, injectable } from "inversify";
+import type { Pool } from "pg";
+
+import DependencySymbols from "../dependencyInjection/DependencySymbols";
+import type PasswordResetCode from "../models/domain/PasswordResetCode";
 import { PersistenceError } from "../errors/ApplicationErrors";
 import {
   PasswordResetCodeMapper,
@@ -9,13 +12,19 @@ import type {
   ConsumePasswordResetModel,
   CreatePasswordResetModel,
 } from "../models/repositories/PasswordResetModels";
+import type { PasswordResetRepositoryPort } from "../ports/RepositoryPorts";
 
-export class PasswordResetRepository {
+@injectable()
+export class PasswordResetRepository implements PasswordResetRepositoryPort {
+  constructor(
+    @inject(DependencySymbols.Pool) private readonly pool: Pool
+  ) {}
+
   async replaceActiveForUser(
     model: CreatePasswordResetModel
   ): Promise<PasswordResetCode> {
     const { userId, codeHash, expiresAt } = model;
-    const client = await pool.connect();
+    const client = await this.pool.connect();
 
     try {
       await client.query("BEGIN");
@@ -54,7 +63,7 @@ export class PasswordResetRepository {
   async findLatestActiveForUser(
     userId: number
   ): Promise<PasswordResetCode | null> {
-    const result = await pool.query<PasswordResetCodeDatabaseRecord>(
+    const result = await this.pool.query<PasswordResetCodeDatabaseRecord>(
       `SELECT id, user_id, code_hash, expires_at, used_at, created_at
        FROM password_reset_codes
        WHERE user_id = $1
@@ -74,7 +83,7 @@ export class PasswordResetRepository {
     model: ConsumePasswordResetModel
   ): Promise<boolean> {
     const { resetCodeId, userId, passwordHash } = model;
-    const client = await pool.connect();
+    const client = await this.pool.connect();
 
     try {
       await client.query("BEGIN");
@@ -113,6 +122,4 @@ export class PasswordResetRepository {
   }
 }
 
-const passwordResetRepository = new PasswordResetRepository();
-
-export default passwordResetRepository;
+export default PasswordResetRepository;

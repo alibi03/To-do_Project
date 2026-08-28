@@ -1,25 +1,24 @@
-import type { NextFunction, Request, Response } from "express";
+import type { ErrorRequestHandler, RequestHandler } from "express";
+import { injectable } from "inversify";
 
 import {
   ApplicationError,
   NotFoundError,
 } from "../errors/ApplicationErrors";
+import type { ErrorMiddlewarePort } from "../ports/InfrastructurePorts";
 
-class ErrorMiddleware {
-  static notFound(
-    _request: Request,
-    _response: Response,
-    next: NextFunction
-  ): void {
+@injectable()
+class ErrorMiddleware implements ErrorMiddlewarePort {
+  readonly notFound: RequestHandler = (_request, _response, next) => {
     next(new NotFoundError());
-  }
+  };
 
-  static handle(
+  readonly handle: ErrorRequestHandler = (
     error: unknown,
-    _request: Request,
-    response: Response,
-    _next: NextFunction
-  ): void {
+    _request,
+    response,
+    _next
+  ) => {
     if (error instanceof ApplicationError) {
       response.status(error.statusCode).json({
         message: error.message,
@@ -31,7 +30,7 @@ class ErrorMiddleware {
     response.status(500).json({
       message: "An unexpected error occurred.",
     });
-  }
+  };
 }
 
 export default ErrorMiddleware;

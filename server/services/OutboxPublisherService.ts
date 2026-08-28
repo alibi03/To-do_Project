@@ -1,12 +1,25 @@
-import Environment from "../config/Environment";
-import RabbitMqPublisher from "../messaging/RabbitMqPublisher";
-import outboxRepository from "../repositories/OutboxRepository";
+import { inject, injectable } from "inversify";
 
-class OutboxPublisherService {
-  private readonly publisher = new RabbitMqPublisher();
+import type { ApplicationConfig } from "../config/ApplicationConfig";
+import DependencySymbols from "../dependencyInjection/DependencySymbols";
+import type { TaskEventPublisherPort } from "../ports/InfrastructurePorts";
+import type { OutboxRepositoryPort } from "../ports/RepositoryPorts";
+import type { OutboxPublisherServicePort } from "../ports/ServicePorts";
+
+@injectable()
+class OutboxPublisherService implements OutboxPublisherServicePort {
   private timer: NodeJS.Timeout | null = null;
   private activeRun: Promise<void> | null = null;
   private running = false;
+
+  constructor(
+    @inject(DependencySymbols.OutboxRepository)
+    private readonly outboxRepository: OutboxRepositoryPort,
+    @inject(DependencySymbols.TaskEventPublisher)
+    private readonly publisher: TaskEventPublisherPort,
+    @inject(DependencySymbols.ApplicationConfig)
+    private readonly config: ApplicationConfig
+  ) {}
 
   start(): void {
     if (this.running) {
@@ -35,7 +48,7 @@ class OutboxPublisherService {
         this.activeRun = null;
 
         if (this.running) {
-          this.schedule(Environment.outboxPollIntervalMilliseconds);
+          this.schedule(this.config.outbox.pollIntervalMilliseconds);
         }
       });
     }, delay);
@@ -45,10 +58,10 @@ class OutboxPublisherService {
     try {
       for (
         let processed = 0;
-        processed < Environment.outboxBatchSize;
+        processed < this.config.outbox.batchSize;
         processed += 1
       ) {
-        const [event] = await outboxRepository.claimPending(1);
+        const [event] = await this.outboxRepository.claimPending(1);
 
         if (!event) {
           return;
@@ -56,10 +69,10 @@ class OutboxPublisherService {
 
         try {
           await this.publisher.publish(event.payload);
-          await outboxRepository.markPublished(event.id);
+          await this.outboxRepository.markPublished(event.id);
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
-          await outboxRepository.markFailed(event.id, message);
+          await this.outboxRepository.markFailed(event.id, message);
           console.error(
             `Could not publish outbox event ${event.id}; it will be retried.`,
             message
@@ -73,6 +86,4 @@ class OutboxPublisherService {
   }
 }
 
-const outboxPublisherService = new OutboxPublisherService();
-
-export default outboxPublisherService;
+export default OutboxPublisherService;

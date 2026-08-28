@@ -1,13 +1,16 @@
 import type { MessageProperties } from "amqplib";
+import { injectable } from "inversify";
 import { validate as isUuid, version as uuidVersion } from "uuid";
 
 import {
   TaskEventType,
   type TaskEvent,
-} from "../domain/TaskEvents";
+} from "../contracts/events/TaskEvents";
 import InvalidTaskEventError from "../errors/EventErrors";
+import type { TaskEventParserPort } from "../ports/InfrastructurePorts";
 
-class TaskEventParser {
+@injectable()
+class TaskEventParser implements TaskEventParserPort {
   private static readonly maximumEventBytes = 20 * 1024;
   private static readonly fields = new Set([
     "schemaVersion",

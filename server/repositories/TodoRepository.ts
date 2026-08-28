@@ -1,22 +1,37 @@
-import pool from "../config/database";
-import type Todo from "../domain/Todo";
+import { inject, injectable } from "inversify";
+import type { Pool } from "pg";
+
+import DependencySymbols from "../dependencyInjection/DependencySymbols";
 import {
   ConcurrencyError,
   PersistenceError,
 } from "../errors/ApplicationErrors";
-import type { TaskEvent } from "../events/TaskEvents";
+import type { TaskEvent } from "../contracts/events/TaskEvents";
 import { TodoMapper, type TodoDatabaseRecord } from "../mappers/TodoMapper";
+import type Todo from "../models/domain/Todo";
 import {
-  CreateTodoModel,
   FindTodosModel,
   TodoSortField,
   TodoSortOrder,
+} from "../models/queries/TodoQueries";
+import {
+  CreateTodoModel,
   UpdateTodoModel,
 } from "../models/repositories/TodoModels";
-import { UserRole } from "../types/authTypes";
-import outboxRepository from "./OutboxRepository";
+import type {
+  OutboxRepositoryPort,
+  TodoRepositoryPort,
+} from "../ports/RepositoryPorts";
+import { UserRole } from "../types/AuthTypes";
 
-export class TodoRepository {
+@injectable()
+export class TodoRepository implements TodoRepositoryPort {
+  constructor(
+    @inject(DependencySymbols.Pool) private readonly pool: Pool,
+    @inject(DependencySymbols.OutboxRepository)
+    private readonly outboxRepository: OutboxRepositoryPort
+  ) {}
+
   private readonly selectTodo = `SELECT
     t.id,
     t.title,
@@ -75,7 +90,7 @@ export class TodoRepository {
   }
 
   async findById(todoId: string): Promise<Todo | null> {
-    const result = await pool.query<TodoDatabaseRecord>(
+    const result = await this.pool.query<TodoDatabaseRecord>(
       `${this.selectTodo}
        WHERE t.id = $1`,
       [todoId]
@@ -105,7 +120,7 @@ export class TodoRepository {
       ? `WHERE ${conditions.join(" AND ")}`
       : "";
     const orderBy = this.buildOrderBy(sortBy, sortOrder);
-    const result = await pool.query<TodoDatabaseRecord>(
+    const result = await this.pool.query<TodoDatabaseRecord>(
       `${this.selectTodo}
        ${whereClause}
        ORDER BY ${orderBy}`,
@@ -117,7 +132,7 @@ export class TodoRepository {
 
   async create(model: CreateTodoModel, events: TaskEvent[]): Promise<Todo> {
     const { id, creatorId, assigneeId, title, description, dueDate } = model;
-    const client = await pool.connect();
+    const client = await this.pool.connect();
 
     try {
       await client.query("BEGIN");
@@ -127,7 +142,7 @@ export class TodoRepository {
          VALUES ($1, $2, $3, $4, $5, $6)`,
         [id, creatorId, assigneeId, title, description, dueDate]
       );
-      await outboxRepository.add(client, events);
+      await this.outboxRepository.add(client, events);
       await client.query("COMMIT");
     } catch (error) {
       await client.query("ROLLBACK");
@@ -158,7 +173,7 @@ export class TodoRepository {
       assigneeId,
       expectedAssigneeId,
     } = model;
-    const client = await pool.connect();
+    const client = await this.pool.connect();
 
     try {
       await client.query("BEGIN");
@@ -195,7 +210,7 @@ export class TodoRepository {
         throw new PersistenceError("The task no longer exists.");
       }
 
-      await outboxRepository.add(client, events);
+      await this.outboxRepository.add(client, events);
       await client.query("COMMIT");
     } catch (error) {
       await client.query("ROLLBACK");
@@ -214,7 +229,7 @@ export class TodoRepository {
   }
 
   async deleteById(todoId: string): Promise<boolean> {
-    const result = await pool.query<{ id: string }>(
+    const result = await this.pool.query<{ id: string }>(
       `DELETE FROM todos
        WHERE id = $1
        RETURNING id`,
@@ -225,6 +240,4 @@ export class TodoRepository {
   }
 }
 
-const todoRepository = new TodoRepository();
-
-export default todoRepository;
+export default TodoRepository;

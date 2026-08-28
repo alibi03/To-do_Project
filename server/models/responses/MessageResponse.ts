@@ -1,5 +1,5 @@
-class MessageResponseModel {
-  constructor(readonly message: string) {}
+interface MessageResponse {
+  message: string;
 }
 
-export default MessageResponseModel;
+export default MessageResponse;

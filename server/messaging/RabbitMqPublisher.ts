@@ -2,20 +2,29 @@ import amqp, {
   type ChannelModel,
   type ConfirmChannel,
 } from "amqplib";
+import { inject, injectable } from "inversify";
 
-import Environment from "../config/Environment";
-import type { TaskEvent } from "../events/TaskEvents";
+import type { ApplicationConfig } from "../config/ApplicationConfig";
+import DependencySymbols from "../dependencyInjection/DependencySymbols";
+import type { TaskEvent } from "../contracts/events/TaskEvents";
+import type { TaskEventPublisherPort } from "../ports/InfrastructurePorts";
 
-class RabbitMqPublisher {
+@injectable()
+class RabbitMqPublisher implements TaskEventPublisherPort {
   private connection: ChannelModel | null = null;
   private channel: ConfirmChannel | null = null;
+
+  constructor(
+    @inject(DependencySymbols.ApplicationConfig)
+    private readonly config: ApplicationConfig
+  ) {}
 
   private async getChannel(): Promise<ConfirmChannel> {
     if (this.channel) {
       return this.channel;
     }
 
-    const connection = await amqp.connect(Environment.rabbitMqUrl, {
+    const connection = await amqp.connect(this.config.rabbitMq.url, {
       timeout: 5000,
     });
     let channel: ConfirmChannel | null = null;
@@ -56,7 +65,7 @@ class RabbitMqPublisher {
       });
 
       await activeChannel.assertExchange(
-        Environment.taskEventsExchange,
+        this.config.rabbitMq.taskEventsExchange,
         "topic",
         { durable: true }
       );
@@ -93,7 +102,7 @@ class RabbitMqPublisher {
 
       try {
         channel.publish(
-          Environment.taskEventsExchange,
+          this.config.rabbitMq.taskEventsExchange,
           event.eventType,
           Buffer.from(JSON.stringify(event)),
           {

@@ -1,7 +1,9 @@
+import { injectable } from "inversify";
 import type { PoolClient } from "pg";
 
 import type Migration from "./Migration";
 
+@injectable()
 class InitialSchemaMigration implements Migration {
   readonly name = "001_initial_schema";
 

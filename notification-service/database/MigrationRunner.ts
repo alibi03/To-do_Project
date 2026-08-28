@@ -1,4 +1,8 @@
 import type { Pool, PoolClient, QueryResultRow } from "pg";
+import { inject, injectable } from "inversify";
+
+import ServiceIdentifiers from "../dependencyInjection/ServiceIdentifiers";
+import type { MigrationRunnerPort } from "../ports/InfrastructurePorts";
 
 class Migration {
   constructor(
@@ -12,7 +16,8 @@ interface MigrationVersionRow extends QueryResultRow {
   version: number;
 }
 
-class MigrationRunner {
+@injectable()
+class MigrationRunner implements MigrationRunnerPort {
   private static readonly advisoryLockId = 7_240_831_001;
 
   private readonly migrations: readonly Migration[] = [
@@ -44,7 +49,10 @@ class MigrationRunner {
     ),
   ];
 
-  constructor(private readonly pool: Pool) {}
+  constructor(
+    @inject(ServiceIdentifiers.DatabasePool)
+    private readonly pool: Pool
+  ) {}
 
   async run(): Promise<void> {
     const client = await this.pool.connect();

@@ -1,7 +1,7 @@
-import type { PublicUserResponseModel } from "./UserResponses";
+import type { PublicUserResponse } from "./UserResponses";
 
-class ProfileResponseModel {
-  constructor(readonly user: PublicUserResponseModel) {}
+interface ProfileResponse {
+  user: PublicUserResponse;
 }
 
-export default ProfileResponseModel;
+export default ProfileResponse;

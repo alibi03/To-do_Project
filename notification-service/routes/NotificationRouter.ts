@@ -1,20 +1,30 @@
 import { Router } from "express";
+import { inject, injectable } from "inversify";
 
-import type NotificationController from "../controllers/NotificationController";
-import type AuthenticateToken from "../middleware/AuthenticateToken";
+import ServiceIdentifiers from "../dependencyInjection/ServiceIdentifiers";
+import type {
+  AuthenticationMiddlewarePort,
+  NotificationControllerPort,
+  NotificationRouterPort,
+} from "../ports/InfrastructurePorts";
 import AsyncHandler from "../utils/AsyncHandler";
 
-class NotificationRouter {
-  static create(
-    authenticateToken: AuthenticateToken,
-    controller: NotificationController
-  ): Router {
+@injectable()
+class NotificationRouter implements NotificationRouterPort {
+  constructor(
+    @inject(ServiceIdentifiers.AuthenticationMiddleware)
+    private readonly authenticateToken: AuthenticationMiddlewarePort,
+    @inject(ServiceIdentifiers.NotificationController)
+    private readonly controller: NotificationControllerPort
+  ) {}
+
+  create(): Router {
     const router = Router();
 
     router.get(
       "/",
-      authenticateToken.handle,
-      AsyncHandler.wrap(controller.list)
+      this.authenticateToken.handle,
+      AsyncHandler.wrap(this.controller.list)
     );
 
     return router;

@@ -1,36 +1,51 @@
 import cors from "cors";
 import express, { type Express } from "express";
+import { inject, injectable } from "inversify";
 
-import Environment from "./config/Environment";
-import type NotificationController from "./controllers/NotificationController";
-import type AuthenticateToken from "./middleware/AuthenticateToken";
-import ErrorMiddleware from "./middleware/ErrorMiddleware";
-import NotificationRouter from "./routes/NotificationRouter";
+import type { NotificationConfig } from "./config/NotificationConfig";
+import ServiceIdentifiers from "./dependencyInjection/ServiceIdentifiers";
+import type {
+  ApplicationFactoryPort,
+  ErrorMiddlewarePort,
+  HealthControllerPort,
+  NotificationRouterPort,
+} from "./ports/InfrastructurePorts";
+import AsyncHandler from "./utils/AsyncHandler";
 
-class ApplicationFactory {
-  static create(
-    authenticateToken: AuthenticateToken,
-    notificationController: NotificationController
-  ): Express {
+@injectable()
+class ApplicationFactory implements ApplicationFactoryPort {
+  constructor(
+    @inject(ServiceIdentifiers.Config)
+    private readonly config: NotificationConfig,
+    @inject(ServiceIdentifiers.HealthController)
+    private readonly healthController: HealthControllerPort,
+    @inject(ServiceIdentifiers.NotificationRouter)
+    private readonly notificationRouter: NotificationRouterPort,
+    @inject(ServiceIdentifiers.ErrorMiddleware)
+    private readonly errorMiddleware: ErrorMiddlewarePort
+  ) {}
+
+  create(): Express {
     const app = express();
 
     app.disable("x-powered-by");
     app.use(
       cors({
-        origin: Environment.clientOrigin,
+        origin: this.config.clientOrigin,
       })
     );
 
-    app.get("/api/health", (_request, response) => {
-      response.json({ status: "ok" });
-    });
+    app.get(
+      "/api/health",
+      AsyncHandler.wrap(this.healthController.getStatus)
+    );
     app.use(
       "/api/notifications",
-      NotificationRouter.create(authenticateToken, notificationController)
+      this.notificationRouter.create()
     );
 
-    app.use(ErrorMiddleware.notFound);
-    app.use(ErrorMiddleware.handle);
+    app.use(this.errorMiddleware.notFound);
+    app.use(this.errorMiddleware.handle);
 
     return app;
   }

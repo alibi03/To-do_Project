@@ -1,7 +1,7 @@
-import type { AssignmentUserResponseModel } from "./UserResponses";
+import type { AssignmentUserResponse } from "./UserResponses";
 
-class UserListResponseModel {
-  constructor(readonly users: AssignmentUserResponseModel[]) {}
+interface UserListResponse {
+  users: AssignmentUserResponse[];
 }
 
-export default UserListResponseModel;
+export default UserListResponse;

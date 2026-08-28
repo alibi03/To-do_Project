@@ -1,19 +1,25 @@
-import type { UpdateTodoRequestDto } from "../dtos/requests/TodoRequests";
-import { TodoUpdateField } from "../dtos/requests/TodoRequests";
-import type Todo from "../domain/Todo";
+import { injectable } from "inversify";
+
 import {
   AuthorizationError,
   NotFoundError,
 } from "../errors/ApplicationErrors";
-import type { AuthenticatedUser } from "../types/authTypes";
-import { UserRole } from "../types/authTypes";
+import type Todo from "../models/domain/Todo";
+import {
+  TodoUpdateField,
+  type UpdateTodoRequestDto,
+} from "../models/requests/TodoRequests";
+import type { AuthorizationServicePort } from "../ports/ServicePorts";
+import type { AuthenticatedUser } from "../types/AuthTypes";
+import { UserRole } from "../types/AuthTypes";
 
-class AuthorizationService {
-  private static readonly memberUpdateFields = new Set<TodoUpdateField>([
+@injectable()
+class AuthorizationService implements AuthorizationServicePort {
+  private readonly memberUpdateFields = new Set<TodoUpdateField>([
     TodoUpdateField.Status,
   ]);
 
-  static requireAdmin(
+  requireAdmin(
     role: UserRole,
     message = "Only administrators can perform this action."
   ): void {
@@ -22,7 +28,7 @@ class AuthorizationService {
     }
   }
 
-  static requireTodoUpdatePermission(
+  requireTodoUpdatePermission(
     currentUser: AuthenticatedUser,
     todo: Todo,
     input: UpdateTodoRequestDto
@@ -42,7 +48,9 @@ class AuthorizationService {
     );
     const changesOnlyStatus =
       suppliedFields.size === this.memberUpdateFields.size &&
-      [...suppliedFields].every((field) => this.memberUpdateFields.has(field));
+      [...suppliedFields].every((field) =>
+        this.memberUpdateFields.has(field)
+      );
 
     if (!changesOnlyStatus) {
       throw new AuthorizationError(

@@ -1,20 +1,29 @@
 import type { NextFunction, Request, Response } from "express";
+import { inject, injectable } from "inversify";
 
+import ServiceIdentifiers from "../dependencyInjection/ServiceIdentifiers";
 import { AuthenticationError } from "../errors/ApplicationErrors";
-import type NotificationLimitParser from "../parsers/NotificationLimitParser";
-import type NotificationService from "../services/NotificationService";
+import type { NotificationListResponse } from "../models/responses/NotificationResponse";
+import type {
+  NotificationControllerPort,
+  NotificationLimitParserPort,
+} from "../ports/InfrastructurePorts";
+import type { NotificationServicePort } from "../ports/ServicePorts";
 
-class NotificationController {
+@injectable()
+class NotificationController implements NotificationControllerPort {
   constructor(
-    private readonly service: NotificationService,
-    private readonly limitParser: NotificationLimitParser
+    @inject(ServiceIdentifiers.NotificationService)
+    private readonly service: NotificationServicePort,
+    @inject(ServiceIdentifiers.NotificationLimitParser)
+    private readonly limitParser: NotificationLimitParserPort
   ) {}
 
   readonly list = async (
     request: Request,
-    response: Response,
+    response: Response<NotificationListResponse>,
     _next: NextFunction
-  ): Promise<void> => {
+  ): Promise<Response<NotificationListResponse>> => {
     const userId = request.authenticatedUserId;
 
     if (!Number.isSafeInteger(userId) || userId === undefined || userId <= 0) {
@@ -24,7 +33,7 @@ class NotificationController {
     const limit = this.limitParser.parse(request.query.limit);
     const notifications = await this.service.listForUser(userId, limit);
 
-    response.json({ notifications });
+    return response.json({ notifications });
   };
 }
 

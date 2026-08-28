@@ -1,21 +1,17 @@
-import type { UserRole } from "../../types/authTypes";
+import type { UserRole } from "../../types/AuthTypes";
 
-class PublicUserResponseModel {
-  constructor(
-    readonly id: number,
-    readonly username: string,
-    readonly email: string,
-    readonly role: UserRole,
-    readonly created_at: Date
-  ) {}
+interface PublicUserResponse {
+  id: number;
+  username: string;
+  email: string;
+  role: UserRole;
+  created_at: string;
 }
 
-class AssignmentUserResponseModel {
-  constructor(
-    readonly id: number,
-    readonly username: string,
-    readonly role: UserRole
-  ) {}
+interface AssignmentUserResponse {
+  id: number;
+  username: string;
+  role: UserRole;
 }
 
-export { AssignmentUserResponseModel, PublicUserResponseModel };
+export { type AssignmentUserResponse, type PublicUserResponse };

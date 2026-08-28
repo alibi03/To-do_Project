@@ -1,13 +1,22 @@
-import pool from "../config/database";
+import { inject, injectable } from "inversify";
+import type { Pool } from "pg";
+
+import DependencySymbols from "../dependencyInjection/DependencySymbols";
 import { PersistenceError } from "../errors/ApplicationErrors";
+import type { SystemRepositoryPort } from "../ports/RepositoryPorts";
 
 type DatabaseTimeRecord = {
   database_time: Date;
 };
 
-export class SystemRepository {
+@injectable()
+export class SystemRepository implements SystemRepositoryPort {
+  constructor(
+    @inject(DependencySymbols.Pool) private readonly pool: Pool
+  ) {}
+
   async getDatabaseTime(): Promise<Date> {
-    const result = await pool.query<DatabaseTimeRecord>(
+    const result = await this.pool.query<DatabaseTimeRecord>(
       "SELECT NOW() AS database_time"
     );
     const row = result.rows[0];
@@ -20,6 +29,4 @@ export class SystemRepository {
   }
 }
 
-const systemRepository = new SystemRepository();
-
-export default systemRepository;
+export default SystemRepository;

@@ -1,16 +1,27 @@
-import pool from "../config/database";
+import { inject, injectable } from "inversify";
+import type { Pool } from "pg";
+
+import DependencySymbols from "../dependencyInjection/DependencySymbols";
+import type { MigrationRunnerPort } from "../ports/InfrastructurePorts";
 import InitialSchemaMigration from "./InitialSchemaMigration";
 import type Migration from "./Migration";
 import UuidTodoOutboxMigration from "./UuidTodoOutboxMigration";
 
-class MigrationRunner {
-  private readonly migrations: Migration[] = [
-    new InitialSchemaMigration(),
-    new UuidTodoOutboxMigration(),
-  ];
+@injectable()
+class MigrationRunner implements MigrationRunnerPort {
+  private readonly migrations: Migration[];
+
+  constructor(
+    @inject(DependencySymbols.Pool)
+    private readonly pool: Pool,
+    initialSchemaMigration: InitialSchemaMigration,
+    uuidTodoOutboxMigration: UuidTodoOutboxMigration
+  ) {
+    this.migrations = [initialSchemaMigration, uuidTodoOutboxMigration];
+  }
 
   async run(): Promise<void> {
-    const client = await pool.connect();
+    const client = await this.pool.connect();
 
     try {
       await client.query("SELECT pg_advisory_lock(hashtext('staj_app_migrations'))");
@@ -55,6 +66,4 @@ class MigrationRunner {
   }
 }
 
-const migrationRunner = new MigrationRunner();
-
-export default migrationRunner;
+export default MigrationRunner;

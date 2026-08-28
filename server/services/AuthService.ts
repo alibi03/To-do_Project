@@ -1,55 +1,63 @@
-import bcrypt from "bcrypt";
 import crypto from "node:crypto";
+
+import bcrypt from "bcrypt";
+import { inject, injectable } from "inversify";
 import { DatabaseError } from "pg";
 
-import Environment from "../config/Environment";
-import type {
-  ForgotPasswordRequestDto,
-  LoginRequestDto,
-  RegisterRequestDto,
-  ResetPasswordRequestDto,
-} from "../dtos/requests/AuthRequests";
+import type { ApplicationConfig } from "../config/ApplicationConfig";
+import DependencySymbols from "../dependencyInjection/DependencySymbols";
 import {
   AuthenticationError,
   ConflictError,
   NotFoundError,
   ValidationError,
 } from "../errors/ApplicationErrors";
-import { UserMapper } from "../mappers/UserMapper";
-import {
-  LoginResultModel,
-  PasswordResetRequestResultModel,
-} from "../models/AuthResults";
+import type User from "../models/domain/User";
+import type {
+  ForgotPasswordRequestDto,
+  LoginRequestDto,
+  RegisterRequestDto,
+  ResetPasswordRequestDto,
+} from "../models/requests/AuthRequests";
 import {
   ConsumePasswordResetModel,
   CreatePasswordResetModel,
 } from "../models/repositories/PasswordResetModels";
 import { CreateUserModel } from "../models/repositories/UserModels";
-import type { PublicUserResponseModel } from "../models/responses/UserResponses";
-import passwordResetRepository from "../repositories/PasswordResetRepository";
-import userRepository from "../repositories/UserRepository";
-import tokenService from "./TokenService";
+import type {
+  LoginResult,
+  PasswordResetRequestResult,
+} from "../models/results/AuthResults";
+import type {
+  PasswordResetRepositoryPort,
+  UserRepositoryPort,
+} from "../ports/RepositoryPorts";
+import type { AuthServicePort, TokenServicePort } from "../ports/ServicePorts";
 
-export class AuthService {
-  private normalizeEmail(email: string): string {
-    return email.toLowerCase();
-  }
+@injectable()
+class AuthService implements AuthServicePort {
+  constructor(
+    @inject(DependencySymbols.UserRepository)
+    private readonly userRepository: UserRepositoryPort,
+    @inject(DependencySymbols.PasswordResetRepository)
+    private readonly passwordResetRepository: PasswordResetRepositoryPort,
+    @inject(DependencySymbols.TokenService)
+    private readonly tokenService: TokenServicePort,
+    @inject(DependencySymbols.ApplicationConfig)
+    private readonly config: ApplicationConfig
+  ) {}
 
-  async register(
-    input: RegisterRequestDto
-  ): Promise<PublicUserResponseModel> {
+  async register(input: RegisterRequestDto): Promise<User> {
     const passwordHash = await bcrypt.hash(input.password, 12);
 
     try {
-      const user = await userRepository.create(
+      return await this.userRepository.create(
         new CreateUserModel(
           input.username,
           this.normalizeEmail(input.email),
           passwordHash
         )
       );
-
-      return UserMapper.toPublicResponse(user);
     } catch (error) {
       if (error instanceof DatabaseError && error.code === "23505") {
         throw new ConflictError("Username or email already exists.");
@@ -59,8 +67,8 @@ export class AuthService {
     }
   }
 
-  async login(input: LoginRequestDto): Promise<LoginResultModel> {
-    const user = await userRepository.findByEmail(
+  async login(input: LoginRequestDto): Promise<LoginResult> {
+    const user = await this.userRepository.findByEmail(
       this.normalizeEmail(input.email)
     );
 
@@ -68,49 +76,47 @@ export class AuthService {
       throw new AuthenticationError("Invalid email or password.");
     }
 
-    return new LoginResultModel(tokenService.create(user.id));
+    return { token: this.tokenService.create(user.id) };
   }
 
-  async getProfile(userId: number): Promise<PublicUserResponseModel> {
-    const user = await userRepository.findById(userId);
+  async getProfile(userId: number): Promise<User> {
+    const user = await this.userRepository.findById(userId);
 
     if (!user) {
       throw new NotFoundError("User not found.");
     }
 
-    return UserMapper.toPublicResponse(user);
+    return user;
   }
 
   async requestPasswordReset(
     input: ForgotPasswordRequestDto
-  ): Promise<PasswordResetRequestResultModel> {
-    const user = await userRepository.findByEmail(
+  ): Promise<PasswordResetRequestResult> {
+    const user = await this.userRepository.findByEmail(
       this.normalizeEmail(input.email)
     );
 
     if (!user) {
-      return new PasswordResetRequestResultModel();
+      return {};
     }
 
     const resetCode = String(crypto.randomInt(100000, 1000000));
     const codeHash = await bcrypt.hash(resetCode, 10);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-    await passwordResetRepository.replaceActiveForUser(
+    await this.passwordResetRepository.replaceActiveForUser(
       new CreatePasswordResetModel(user.id, codeHash, expiresAt)
     );
 
-    return Environment.exposesPasswordResetCode
-      ? new PasswordResetRequestResultModel(resetCode)
-      : new PasswordResetRequestResultModel();
+    return this.config.jwt.exposePasswordResetCode ? { resetCode } : {};
   }
 
   async resetPassword(input: ResetPasswordRequestDto): Promise<void> {
-    const user = await userRepository.findByEmail(
+    const user = await this.userRepository.findByEmail(
       this.normalizeEmail(input.email)
     );
     const resetEntry = user
-      ? await passwordResetRepository.findLatestActiveForUser(user.id)
+      ? await this.passwordResetRepository.findLatestActiveForUser(user.id)
       : null;
 
     if (
@@ -122,16 +128,19 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(input.newPassword, 12);
-    const updated = await passwordResetRepository.consumeAndUpdatePassword(
-      new ConsumePasswordResetModel(resetEntry.id, user.id, passwordHash)
-    );
+    const updated =
+      await this.passwordResetRepository.consumeAndUpdatePassword(
+        new ConsumePasswordResetModel(resetEntry.id, user.id, passwordHash)
+      );
 
     if (!updated) {
       throw new ValidationError("Reset code is invalid or expired.");
     }
   }
+
+  private normalizeEmail(email: string): string {
+    return email.toLowerCase();
+  }
 }
 
-const authService = new AuthService();
-
-export default authService;
+export default AuthService;

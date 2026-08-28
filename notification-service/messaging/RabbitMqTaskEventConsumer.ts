@@ -1,33 +1,54 @@
 import {
-  connect,
   type ChannelModel,
   type ConfirmChannel,
   type ConsumeMessage,
 } from "amqplib";
+import { inject, injectable } from "inversify";
 
-import Environment from "../config/Environment";
-import { TaskEventType, type TaskEvent } from "../domain/TaskEvents";
+import type { NotificationConfig } from "../config/NotificationConfig";
+import {
+  TaskEventType,
+  type TaskEvent,
+} from "../contracts/events/TaskEvents";
+import ServiceIdentifiers from "../dependencyInjection/ServiceIdentifiers";
 import InvalidTaskEventError from "../errors/EventErrors";
-import type TaskEventParser from "../parsers/TaskEventParser";
-import type NotificationService from "../services/NotificationService";
+import type {
+  RabbitMqConnectionFactoryPort,
+  RetryPublisherPort,
+  TaskEventConsumerPort,
+  TaskEventParserPort,
+} from "../ports/InfrastructurePorts";
+import type { NotificationServicePort } from "../ports/ServicePorts";
 
-class RabbitMqTaskEventConsumer {
+@injectable()
+class RabbitMqTaskEventConsumer implements TaskEventConsumerPort {
   private connection: ChannelModel | null = null;
   private channel: ConfirmChannel | null = null;
   private reconnectTimer: NodeJS.Timeout | null = null;
   private running = false;
   private connecting = false;
-  private readonly retryExchange = `${Environment.rabbitMqQueue}.retry-exchange`;
-  private readonly retryQueue = `${Environment.rabbitMqQueue}.retry`;
-  private readonly deadLetterExchange =
-    `${Environment.rabbitMqQueue}.dead-letter-exchange`;
-  private readonly deadLetterQueue =
-    `${Environment.rabbitMqQueue}.dead-letter`;
+  private readonly retryExchange: string;
+  private readonly retryQueue: string;
+  private readonly deadLetterExchange: string;
+  private readonly deadLetterQueue: string;
 
   constructor(
-    private readonly parser: TaskEventParser,
-    private readonly notificationService: NotificationService
-  ) {}
+    @inject(ServiceIdentifiers.TaskEventParser)
+    private readonly parser: TaskEventParserPort,
+    @inject(ServiceIdentifiers.NotificationService)
+    private readonly notificationService: NotificationServicePort,
+    @inject(ServiceIdentifiers.RabbitMqConnectionFactory)
+    private readonly connectionFactory: RabbitMqConnectionFactoryPort,
+    @inject(ServiceIdentifiers.RetryPublisher)
+    private readonly retryPublisher: RetryPublisherPort,
+    @inject(ServiceIdentifiers.Config)
+    private readonly config: NotificationConfig
+  ) {
+    this.retryExchange = `${config.rabbitMq.queue}.retry-exchange`;
+    this.retryQueue = `${config.rabbitMq.queue}.retry`;
+    this.deadLetterExchange = `${config.rabbitMq.queue}.dead-letter-exchange`;
+    this.deadLetterQueue = `${config.rabbitMq.queue}.dead-letter`;
+  }
 
   start(): void {
     if (this.running) {
@@ -85,7 +106,7 @@ class RabbitMqTaskEventConsumer {
     let consumerCancelled = false;
 
     try {
-      connection = await connect(Environment.rabbitMqUrl, { timeout: 5_000 });
+      connection = await this.connectionFactory.connect();
 
       connection.on("error", (error) => {
         console.error("RabbitMQ connection error.", error);
@@ -126,9 +147,9 @@ class RabbitMqTaskEventConsumer {
       });
 
       await this.assertTopology(activeChannel);
-      await activeChannel.prefetch(Environment.rabbitMqPrefetch);
+      await activeChannel.prefetch(this.config.rabbitMq.prefetch);
       await activeChannel.consume(
-        Environment.rabbitMqQueue,
+        this.config.rabbitMq.queue,
         (message) => {
           if (message === null) {
             consumerCancelled = true;
@@ -190,7 +211,7 @@ class RabbitMqTaskEventConsumer {
   }
 
   private async assertTopology(channel: ConfirmChannel): Promise<void> {
-    await channel.assertExchange(Environment.rabbitMqExchange, "topic", {
+    await channel.assertExchange(this.config.rabbitMq.exchange, "topic", {
       durable: true,
     });
     await channel.assertExchange(this.retryExchange, "direct", {
@@ -200,21 +221,21 @@ class RabbitMqTaskEventConsumer {
       durable: true,
     });
 
-    await channel.assertQueue(Environment.rabbitMqQueue, {
+    await channel.assertQueue(this.config.rabbitMq.queue, {
       durable: true,
       deadLetterExchange: this.deadLetterExchange,
     });
     await channel.assertQueue(this.retryQueue, {
       durable: true,
-      messageTtl: Environment.rabbitMqRetryDelayMs,
-      deadLetterExchange: Environment.rabbitMqExchange,
+      messageTtl: this.config.rabbitMq.retryDelayMilliseconds,
+      deadLetterExchange: this.config.rabbitMq.exchange,
     });
     await channel.assertQueue(this.deadLetterQueue, { durable: true });
 
     for (const routingKey of Object.values(TaskEventType)) {
       await channel.bindQueue(
-        Environment.rabbitMqQueue,
-        Environment.rabbitMqExchange,
+        this.config.rabbitMq.queue,
+        this.config.rabbitMq.exchange,
         routingKey
       );
       await channel.bindQueue(this.retryQueue, this.retryExchange, routingKey);
@@ -266,7 +287,7 @@ class RabbitMqTaskEventConsumer {
       message.properties.headers?.["x-retry-count"]
     );
 
-    if (retryCount >= Environment.rabbitMqMaxRetries) {
+    if (retryCount >= this.config.rabbitMq.maxRetries) {
       console.error(
         `Dead-lettering event ${event.eventId} after ${retryCount} retries.`,
         error
@@ -275,27 +296,16 @@ class RabbitMqTaskEventConsumer {
       return;
     }
 
-    channel.publish(
-      this.retryExchange,
-      event.eventType,
-      message.content,
-      {
-        persistent: true,
-        contentType: "application/json",
-        contentEncoding: "utf-8",
-        messageId: event.eventId,
-        type: event.eventType,
-        timestamp: Math.floor(Date.now() / 1_000),
-        headers: {
-          "x-retry-count": retryCount + 1,
-        },
-      }
+    await this.retryPublisher.publish(
+      channel,
+      message,
+      event,
+      retryCount + 1
     );
-    await channel.waitForConfirms();
     channel.ack(message);
 
     console.warn(
-      `Scheduled retry ${retryCount + 1}/${Environment.rabbitMqMaxRetries} ` +
+      `Scheduled retry ${retryCount + 1}/${this.config.rabbitMq.maxRetries} ` +
         `for event ${event.eventId}.`
     );
   }

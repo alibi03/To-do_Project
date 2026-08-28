@@ -1,40 +1,61 @@
+import { inject, injectable } from "inversify";
 import { DatabaseError } from "pg";
 
-import {
-  TodoUpdateField,
-  type CreateTodoRequestDto,
-  type TodoListQueryDto,
-  type UpdateTodoRequestDto,
-} from "../dtos/requests/TodoRequests";
+import DependencySymbols from "../dependencyInjection/DependencySymbols";
 import {
   ConcurrencyError,
   ConflictError,
   NotFoundError,
   ValidationError,
 } from "../errors/ApplicationErrors";
-import { type TaskEvent, TaskEventFactory } from "../events/TaskEvents";
-import TodoResponseMapper from "../mappers/TodoResponseMapper";
+import type { TaskEvent } from "../contracts/events/TaskEvents";
+import type Todo from "../models/domain/Todo";
 import {
-  CreateTodoModel,
   FindTodosModel,
   TodoSortField,
   TodoSortOrder,
+} from "../models/queries/TodoQueries";
+import {
+  TodoUpdateField,
+  type CreateTodoRequestDto,
+  type TodoListQueryDto,
+  type UpdateTodoRequestDto,
+} from "../models/requests/TodoRequests";
+import {
+  CreateTodoModel,
   UpdateTodoModel,
 } from "../models/repositories/TodoModels";
-import type TodoResponseModel from "../models/responses/TodoResponse";
-import todoRepository from "../repositories/TodoRepository";
-import type { AuthenticatedUser } from "../types/authTypes";
-import UuidGenerator from "../utils/UuidGenerator";
-import AuthorizationService from "./AuthorizationService";
+import type {
+  TaskEventFactoryPort,
+  UuidGeneratorPort,
+} from "../ports/InfrastructurePorts";
+import type { TodoRepositoryPort } from "../ports/RepositoryPorts";
+import type {
+  AuthorizationServicePort,
+  TodoServicePort,
+} from "../ports/ServicePorts";
+import type { AuthenticatedUser } from "../types/AuthTypes";
 
-export class TodoService {
+@injectable()
+class TodoService implements TodoServicePort {
   private readonly updateFields = Object.values(TodoUpdateField);
+
+  constructor(
+    @inject(DependencySymbols.TodoRepository)
+    private readonly todoRepository: TodoRepositoryPort,
+    @inject(DependencySymbols.AuthorizationService)
+    private readonly authorizationService: AuthorizationServicePort,
+    @inject(DependencySymbols.TaskEventFactory)
+    private readonly taskEventFactory: TaskEventFactoryPort,
+    @inject(DependencySymbols.UuidGenerator)
+    private readonly uuidGenerator: UuidGeneratorPort
+  ) {}
 
   async listForUser(
     currentUser: AuthenticatedUser,
     query: TodoListQueryDto
-  ): Promise<TodoResponseModel[]> {
-    const todos = await todoRepository.findForUser(
+  ): Promise<Todo[]> {
+    return this.todoRepository.findForUser(
       new FindTodosModel(
         currentUser.userId,
         currentUser.role,
@@ -43,18 +64,15 @@ export class TodoService {
         query.sortOrder ?? TodoSortOrder.Ascending
       )
     );
-
-    return todos.map(TodoResponseMapper.toResponse);
   }
 
   async create(
     currentUser: AuthenticatedUser,
     input: CreateTodoRequestDto
-  ): Promise<TodoResponseModel> {
-    AuthorizationService.requireAdmin(currentUser.role);
+  ): Promise<Todo> {
+    this.authorizationService.requireAdmin(currentUser.role);
 
-    const todoId = UuidGenerator.generateV7();
-
+    const todoId = this.uuidGenerator.generateV7();
     const model = new CreateTodoModel(
       todoId,
       currentUser.userId,
@@ -64,13 +82,13 @@ export class TodoService {
       input.dueDate ?? null
     );
     const events = [
-      TaskEventFactory.taskCreated(
+      this.taskEventFactory.taskCreated(
         todoId,
         input.title,
         currentUser.userId,
         input.assignedToUserId
       ),
-      TaskEventFactory.taskAssigned(
+      this.taskEventFactory.taskAssigned(
         todoId,
         input.title,
         currentUser.userId,
@@ -79,8 +97,7 @@ export class TodoService {
     ];
 
     try {
-      const todo = await todoRepository.create(model, events);
-      return TodoResponseMapper.toResponse(todo);
+      return await this.todoRepository.create(model, events);
     } catch (error) {
       if (error instanceof DatabaseError && error.code === "23503") {
         throw new ValidationError("Assigned user does not exist.");
@@ -94,18 +111,18 @@ export class TodoService {
     currentUser: AuthenticatedUser,
     todoId: string,
     input: UpdateTodoRequestDto
-  ): Promise<TodoResponseModel> {
+  ): Promise<Todo> {
     if (!this.updateFields.some((field) => input[field] !== undefined)) {
       throw new ValidationError("At least one task field must be provided.");
     }
 
-    const existingTodo = await todoRepository.findById(todoId);
+    const existingTodo = await this.todoRepository.findById(todoId);
 
     if (!existingTodo) {
       throw new NotFoundError("To-do not found.");
     }
 
-    AuthorizationService.requireTodoUpdatePermission(
+    this.authorizationService.requireTodoUpdatePermission(
       currentUser,
       existingTodo,
       input
@@ -128,7 +145,7 @@ export class TodoService {
 
     if (assigneeChanged && input.assignedToUserId !== undefined) {
       events.push(
-        TaskEventFactory.taskAssigned(
+        this.taskEventFactory.taskAssigned(
           todoId,
           input.title ?? existingTodo.title,
           existingTodo.createdByUserId,
@@ -138,8 +155,7 @@ export class TodoService {
     }
 
     try {
-      const todo = await todoRepository.update(todoId, model, events);
-      return TodoResponseMapper.toResponse(todo);
+      return await this.todoRepository.update(todoId, model, events);
     } catch (error) {
       if (error instanceof ConcurrencyError) {
         throw new ConflictError(
@@ -156,9 +172,9 @@ export class TodoService {
   }
 
   async remove(currentUser: AuthenticatedUser, todoId: string): Promise<void> {
-    AuthorizationService.requireAdmin(currentUser.role);
+    this.authorizationService.requireAdmin(currentUser.role);
 
-    const deleted = await todoRepository.deleteById(todoId);
+    const deleted = await this.todoRepository.deleteById(todoId);
 
     if (!deleted) {
       throw new NotFoundError("To-do not found.");
@@ -166,6 +182,4 @@ export class TodoService {
   }
 }
 
-const todoService = new TodoService();
-
-export default todoService;
+export default TodoService;

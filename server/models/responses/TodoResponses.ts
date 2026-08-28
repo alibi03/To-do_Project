@@ -1,14 +1,12 @@
-import type TodoResponseModel from "./TodoResponse";
-import MessageResponseModel from "./MessageResponse";
+import type MessageResponse from "./MessageResponse";
+import type TodoResponse from "./TodoResponse";
 
-class TodoListResponseModel {
-  constructor(readonly todos: TodoResponseModel[]) {}
+interface TodoListResponse {
+  todos: TodoResponse[];
 }
 
-class TodoMutationResponseModel extends MessageResponseModel {
-  constructor(message: string, readonly todo: TodoResponseModel) {
-    super(message);
-  }
+interface TodoMutationResponse extends MessageResponse {
+  todo: TodoResponse;
 }
 
-export { TodoListResponseModel, TodoMutationResponseModel };
+export { type TodoListResponse, type TodoMutationResponse };

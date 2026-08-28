@@ -1,15 +1,22 @@
-import type { PoolClient } from "pg";
+import { inject, injectable } from "inversify";
+import type { Pool, PoolClient } from "pg";
 
-import pool from "../config/database";
-import type { TaskEvent } from "../events/TaskEvents";
+import DependencySymbols from "../dependencyInjection/DependencySymbols";
+import type { TaskEvent } from "../contracts/events/TaskEvents";
 import OutboxEventModel from "../models/repositories/OutboxModels";
+import type { OutboxRepositoryPort } from "../ports/RepositoryPorts";
 
 type OutboxDatabaseRecord = {
   id: string;
   payload: TaskEvent;
 };
 
-class OutboxRepository {
+@injectable()
+class OutboxRepository implements OutboxRepositoryPort {
+  constructor(
+    @inject(DependencySymbols.Pool) private readonly pool: Pool
+  ) {}
+
   async add(client: PoolClient, events: TaskEvent[]): Promise<void> {
     for (const event of events) {
       await client.query(
@@ -28,7 +35,7 @@ class OutboxRepository {
   }
 
   async claimPending(limit: number): Promise<OutboxEventModel[]> {
-    const result = await pool.query<OutboxDatabaseRecord>(
+    const result = await this.pool.query<OutboxDatabaseRecord>(
       `WITH pending AS (
          SELECT id
          FROM outbox_events
@@ -56,7 +63,7 @@ class OutboxRepository {
   }
 
   async markPublished(eventId: string): Promise<void> {
-    await pool.query(
+    await this.pool.query(
       `UPDATE outbox_events
        SET published_at = CURRENT_TIMESTAMP,
            claimed_at = NULL,
@@ -67,7 +74,7 @@ class OutboxRepository {
   }
 
   async markFailed(eventId: string, message: string): Promise<void> {
-    await pool.query(
+    await this.pool.query(
       `UPDATE outbox_events
        SET claimed_at = NULL,
            last_error = $2
@@ -77,6 +84,4 @@ class OutboxRepository {
   }
 }
 
-const outboxRepository = new OutboxRepository();
-
-export default outboxRepository;
+export default OutboxRepository;

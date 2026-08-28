@@ -1,11 +1,11 @@
-import { TaskEventType } from "../domain/TaskEvents";
+import { TaskEventType } from "../contracts/events/TaskEvents";
 import type {
-  NotificationResponseModel,
   NotificationRow,
-} from "../models/NotificationModels";
+} from "../models/repositories/NotificationModels";
+import type NotificationResponse from "../models/responses/NotificationResponse";
 
 class NotificationResponseMapper {
-  static toResponse(row: NotificationRow): NotificationResponseModel {
+  static toResponse(row: NotificationRow): NotificationResponse {
     if (row.event_type !== TaskEventType.Assigned) {
       throw new Error("Only assignment notifications can be returned to a user.");
     }

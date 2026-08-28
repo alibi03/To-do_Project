@@ -1,11 +1,19 @@
-import systemRepository from "../repositories/SystemRepository";
+import { inject, injectable } from "inversify";
 
-export class HealthService {
+import DependencySymbols from "../dependencyInjection/DependencySymbols";
+import type { SystemRepositoryPort } from "../ports/RepositoryPorts";
+import type { HealthServicePort } from "../ports/ServicePorts";
+
+@injectable()
+class HealthService implements HealthServicePort {
+  constructor(
+    @inject(DependencySymbols.SystemRepository)
+    private readonly systemRepository: SystemRepositoryPort
+  ) {}
+
   async getDatabaseTime(): Promise<Date> {
-    return systemRepository.getDatabaseTime();
+    return this.systemRepository.getDatabaseTime();
   }
 }
 
-const healthService = new HealthService();
-
-export default healthService;
+export default HealthService;

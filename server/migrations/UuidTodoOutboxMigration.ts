@@ -1,7 +1,9 @@
+import { inject, injectable } from "inversify";
 import type { PoolClient } from "pg";
 
+import DependencySymbols from "../dependencyInjection/DependencySymbols";
 import { PersistenceError } from "../errors/ApplicationErrors";
-import UuidGenerator from "../utils/UuidGenerator";
+import type { UuidGeneratorPort } from "../ports/InfrastructurePorts";
 import type Migration from "./Migration";
 
 type TodoIdColumnRecord = {
@@ -16,8 +18,14 @@ type ReferencingConstraintRecord = {
   constraint_name: string;
 };
 
+@injectable()
 class UuidTodoOutboxMigration implements Migration {
   readonly name = "002_uuidv7_todo_ids_and_outbox";
+
+  constructor(
+    @inject(DependencySymbols.UuidGenerator)
+    private readonly uuidGenerator: UuidGeneratorPort
+  ) {}
 
   async up(client: PoolClient): Promise<void> {
     await this.migrateTodoIds(client);
@@ -70,7 +78,7 @@ class UuidTodoOutboxMigration implements Migration {
 
     for (const todo of legacyTodos.rows) {
       await client.query("UPDATE todos SET id_v7 = $1 WHERE id = $2", [
-        UuidGenerator.generateV7(),
+        this.uuidGenerator.generateV7(),
         todo.id,
       ]);
     }

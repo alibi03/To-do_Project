@@ -1,10 +1,17 @@
 import type { NextFunction, Request, Response } from "express";
+import { inject, injectable } from "inversify";
 
+import ServiceIdentifiers from "../dependencyInjection/ServiceIdentifiers";
 import { AuthenticationError } from "../errors/ApplicationErrors";
-import type TokenService from "../services/TokenService";
+import type { AuthenticationMiddlewarePort } from "../ports/InfrastructurePorts";
+import type { TokenServicePort } from "../ports/ServicePorts";
 
-class AuthenticateToken {
-  constructor(private readonly tokenService: TokenService) {}
+@injectable()
+class AuthenticateToken implements AuthenticationMiddlewarePort {
+  constructor(
+    @inject(ServiceIdentifiers.TokenService)
+    private readonly tokenService: TokenServicePort
+  ) {}
 
   readonly handle = (
     request: Request,

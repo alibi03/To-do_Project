@@ -1,23 +1,31 @@
-import { UserMapper } from "../mappers/UserMapper";
-import type { AssignmentUserResponseModel } from "../models/responses/UserResponses";
-import userRepository from "../repositories/UserRepository";
-import type { UserRole } from "../types/authTypes";
-import AuthorizationService from "./AuthorizationService";
+import { inject, injectable } from "inversify";
 
-export class UserService {
-  async listForAssignment(
-    role: UserRole
-  ): Promise<AssignmentUserResponseModel[]> {
-    AuthorizationService.requireAdmin(
+import DependencySymbols from "../dependencyInjection/DependencySymbols";
+import type User from "../models/domain/User";
+import type { UserRepositoryPort } from "../ports/RepositoryPorts";
+import type {
+  AuthorizationServicePort,
+  UserServicePort,
+} from "../ports/ServicePorts";
+import type { UserRole } from "../types/AuthTypes";
+
+@injectable()
+class UserService implements UserServicePort {
+  constructor(
+    @inject(DependencySymbols.UserRepository)
+    private readonly userRepository: UserRepositoryPort,
+    @inject(DependencySymbols.AuthorizationService)
+    private readonly authorizationService: AuthorizationServicePort
+  ) {}
+
+  async listForAssignment(role: UserRole): Promise<User[]> {
+    this.authorizationService.requireAdmin(
       role,
       "Only administrators can view assignment options."
     );
 
-    const users = await userRepository.listForAssignment();
-    return users.map(UserMapper.toAssignmentResponse);
+    return this.userRepository.listForAssignment();
   }
 }
 
-const userService = new UserService();
-
-export default userService;
+export default UserService;

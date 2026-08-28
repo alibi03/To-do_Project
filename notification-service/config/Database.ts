@@ -1,23 +1,15 @@
 import { Pool } from "pg";
+import { inject, injectable } from "inversify";
 
-import Environment from "./Environment";
+import ServiceIdentifiers from "../dependencyInjection/ServiceIdentifiers";
+import type { DatabasePort } from "../ports/InfrastructurePorts";
 
-class Database {
-  readonly pool: Pool;
-
-  constructor() {
-    this.pool = new Pool({
-      host: Environment.databaseHost,
-      port: Environment.databasePort,
-      database: Environment.databaseName,
-      user: Environment.databaseUser,
-      password: Environment.databasePassword,
-    });
-
-    this.pool.on("error", (error) => {
-      console.error("Unexpected notification database pool error.", error);
-    });
-  }
+@injectable()
+class Database implements DatabasePort {
+  constructor(
+    @inject(ServiceIdentifiers.DatabasePool)
+    private readonly pool: Pool
+  ) {}
 
   async close(): Promise<void> {
     await this.pool.end();

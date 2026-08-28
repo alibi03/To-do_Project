@@ -1,4 +1,4 @@
-import type { TaskEvent } from "../../events/TaskEvents";
+import type { TaskEvent } from "../../contracts/events/TaskEvents";
 
 class OutboxEventModel {
   constructor(

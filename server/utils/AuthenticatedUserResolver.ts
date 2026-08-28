@@ -1,5 +1,5 @@
 import { AuthenticationError } from "../errors/ApplicationErrors";
-import type { AuthenticatedUser } from "../types/authTypes";
+import type { AuthenticatedUser } from "../types/AuthTypes";
 
 type RequestWithUser = {
   user?: AuthenticatedUser;

@@ -1,4 +1,4 @@
-import Todo, { type TodoStatus } from "../domain/Todo";
+import Todo, { type TodoStatus } from "../models/domain/Todo";
 
 type TodoDatabaseRecord = {
   id: string;

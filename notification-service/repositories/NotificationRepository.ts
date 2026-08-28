@@ -1,13 +1,20 @@
 import type { Pool } from "pg";
+import { inject, injectable } from "inversify";
 
-import { TaskEventType } from "../domain/TaskEvents";
+import { TaskEventType } from "../contracts/events/TaskEvents";
+import ServiceIdentifiers from "../dependencyInjection/ServiceIdentifiers";
 import {
-  type NotificationRow,
   type CreateNotificationModel,
-} from "../models/NotificationModels";
+  type NotificationRow,
+} from "../models/repositories/NotificationModels";
+import type { NotificationRepositoryPort } from "../ports/RepositoryPorts";
 
-class NotificationRepository {
-  constructor(private readonly pool: Pool) {}
+@injectable()
+class NotificationRepository implements NotificationRepositoryPort {
+  constructor(
+    @inject(ServiceIdentifiers.DatabasePool)
+    private readonly pool: Pool
+  ) {}
 
   async insert(model: CreateNotificationModel): Promise<void> {
     await this.pool.query(

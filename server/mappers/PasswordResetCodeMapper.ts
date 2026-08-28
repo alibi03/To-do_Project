@@ -1,4 +1,4 @@
-import PasswordResetCode from "../domain/PasswordResetCode";
+import PasswordResetCode from "../models/domain/PasswordResetCode";
 
 type PasswordResetCodeDatabaseRecord = {
   id: number;

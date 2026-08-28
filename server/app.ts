@@ -1,43 +1,66 @@
-import "reflect-metadata";
-
 import cors from "cors";
-import express from "express";
+import express, { type Express } from "express";
+import { inject, injectable } from "inversify";
 
-import Environment from "./config/Environment";
-import * as healthController from "./controllers/healthController";
-import {
-  errorHandler,
-  notFoundHandler,
-} from "./middleware/errorHandler";
-import authRouter from "./routes/authRoutes";
-import profileRouter from "./routes/profileRoutes";
-import todosRouter from "./routes/todoRoutes";
-import usersRouter from "./routes/userRoutes";
+import type { ApplicationConfig } from "./config/ApplicationConfig";
+import HealthController from "./controllers/HealthController";
+import DependencySymbols from "./dependencyInjection/DependencySymbols";
+import ErrorMiddleware from "./middleware/ErrorMiddleware";
+import type { ApplicationFactoryPort } from "./ports/InfrastructurePorts";
+import AuthRouter from "./routes/AuthRouter";
+import ProfileRouter from "./routes/ProfileRouter";
+import TodoRouter from "./routes/TodoRouter";
+import UserRouter from "./routes/UserRouter";
 import AsyncHandler from "./utils/AsyncHandler";
 
-const app = express();
+@injectable()
+class ApplicationFactory implements ApplicationFactoryPort {
+  constructor(
+    @inject(DependencySymbols.ApplicationConfig)
+    private readonly config: ApplicationConfig,
+    @inject(DependencySymbols.HealthController)
+    private readonly healthController: HealthController,
+    @inject(DependencySymbols.AuthRouter)
+    private readonly authRouter: AuthRouter,
+    @inject(DependencySymbols.ProfileRouter)
+    private readonly profileRouter: ProfileRouter,
+    @inject(DependencySymbols.TodoRouter)
+    private readonly todoRouter: TodoRouter,
+    @inject(DependencySymbols.UserRouter)
+    private readonly userRouter: UserRouter,
+    @inject(DependencySymbols.ErrorMiddleware)
+    private readonly errorMiddleware: ErrorMiddleware
+  ) {}
 
-Environment.validate();
-app.disable("x-powered-by");
+  create(): Express {
+    const app = express();
 
-app.use(
-  cors({
-    origin: Environment.clientOrigin,
-  })
-);
-app.use(express.json({ limit: "20kb" }));
+    app.disable("x-powered-by");
+    app.use(
+      cors({
+        origin: this.config.clientOrigin,
+      })
+    );
+    app.use(express.json({ limit: "20kb" }));
 
-app.get("/", (_request, response) => {
-  response.send("Staj App server is running!");
-});
-app.get("/api/health", AsyncHandler.wrap(healthController.getStatus));
+    app.get("/", (_request, response) => {
+      response.send("Staj App server is running!");
+    });
+    app.get(
+      "/api/health",
+      AsyncHandler.wrap(this.healthController.getStatus)
+    );
 
-app.use("/api/auth", authRouter);
-app.use("/api/profile", profileRouter);
-app.use("/api/todos", todosRouter);
-app.use("/api/users", usersRouter);
+    app.use("/api/auth", this.authRouter.create());
+    app.use("/api/profile", this.profileRouter.create());
+    app.use("/api/todos", this.todoRouter.create());
+    app.use("/api/users", this.userRouter.create());
 
-app.use(notFoundHandler);
-app.use(errorHandler);
+    app.use(this.errorMiddleware.notFound);
+    app.use(this.errorMiddleware.handle);
 
-export default app;
+    return app;
+  }
+}
+
+export default ApplicationFactory;

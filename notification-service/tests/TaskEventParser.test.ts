@@ -4,7 +4,7 @@ import test from "node:test";
 import type { MessageProperties } from "amqplib";
 import { v7 as uuidV7 } from "uuid";
 
-import { TaskEventType } from "../domain/TaskEvents";
+import { TaskEventType } from "../contracts/events/TaskEvents";
 import InvalidTaskEventError from "../errors/EventErrors";
 import TaskEventParser from "../parsers/TaskEventParser";
 

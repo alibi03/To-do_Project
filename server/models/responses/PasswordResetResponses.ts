@@ -1,12 +1,7 @@
-import MessageResponseModel from "./MessageResponse";
+import type MessageResponse from "./MessageResponse";
 
-class ForgotPasswordResponseModel extends MessageResponseModel {
-  readonly resetCode?: string;
-
-  constructor(message: string, resetCode?: string) {
-    super(message);
-    this.resetCode = resetCode;
-  }
+interface ForgotPasswordResponse extends MessageResponse {
+  resetCode?: string;
 }
 
-export { ForgotPasswordResponseModel };
+export { type ForgotPasswordResponse };
